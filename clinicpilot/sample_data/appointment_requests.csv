@@ -1,0 +1,25 @@
+name,age,request_type,symptoms,duration,severity,pregnant,chronic
+Graham Turner,61,New problem,"Tightness across my chest since an hour ago, sweaty, goes down my left arm",<24h,7,no,no
+Mia Robinson,4,New problem,"Ear pain on the right side and a fever of 38.9 since last night, not eating much",1-3 days,6,no,no
+Joan Kelly,68,Repeat script,Need my blood pressure tablets renewed. Feeling fine,n/a,0,no,yes
+Sam Lee,29,New problem,"Runny nose, sneezing and a bit of a sore throat since yesterday",1-3 days,2,no,no
+Priya Shah,34,New problem,"Feeling anxious most days for the last month, trouble sleeping, stressed at work",>1 week,5,no,no
+Ken Walsh,79,New problem,"Burning when passing urine, a bit confused this morning",1-3 days,6,no,no
+Lily Park,0,New problem,"Temperature 38.2, 9 months old, unsettled and not feeding well",<24h,5,no,no
+Hannah Cole,30,New problem,Cramping low in my tummy since this morning,<24h,4,yes,no
+Ray Dunn,52,Vaccination,Flu shot please,n/a,0,no,no
+Tom Brady,45,Medical certificate,"Had gastro yesterday, better now, need a certificate for work",1-3 days,2,no,no
+Elena Rossi,70,New problem,"My husband says my face is drooping and my speech is slurred",<24h,6,no,yes
+Josh Nguyen,22,New problem,I want to end it all and don't know what to do,>1 week,8,no,no
+Grace Liu,38,Follow-up,"Review of the rash on my arm, it is improving",1-3 days,2,no,no
+Ahmed Karim,57,New problem,"Swollen ankle after rolling it at footy, hard to walk",<24h,6,no,no
+Olivia Brown,26,Test results,Want to go over my blood test results,n/a,0,no,no
+Ben Carter,8,New problem,"Cough and wheezing at night, uses a puffer for asthma",4-7 days,5,no,yes
+Sophie Martin,33,New problem,Mild headache on and off for a few days,4-7 days,3,no,no
+Daniel Wright,48,Referral,Need a referral to see the dermatologist again,n/a,1,no,no
+Chloe Adams,19,New problem,"Sore throat and a slight cough, still going to uni",1-3 days,3,no,no
+Frank Hughes,83,New problem,"Short of breath walking to the letterbox, worse this week",4-7 days,5,no,yes
+Ruby Evans,2,New problem,"Vomiting and diarrhoea since last night, not keeping fluids down",<24h,7,no,no
+Mark Taylor,64,New problem,"Type 2 diabetes, new numbness in both feet",>1 week,4,no,yes
+Zoe Mitchell,27,New problem,"Throat is swelling and lips puffy after eating prawns",<24h,8,no,no
+Unknown caller,,New problem,"Rang about a rash, didn't leave details",1-3 days,3,no,no

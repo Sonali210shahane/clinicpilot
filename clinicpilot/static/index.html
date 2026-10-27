@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>ClinicPilot</title>
+<meta name="description" content="ClinicPilot: an AI-assisted patient intake, triage routing and reception queue for a 7-day GP clinic.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a clinic front-desk console. Header band, tab rail, two-column work area (form | result) that stacks on phones. */
+:root{
+  --bg:#F2F5F3; --surface:#FFFFFF; --sunk:#E8EEEB; --ink:#14232A; --muted:#566A6C; --line:#D5DEDA;
+  --accent:#1E6A5B; --accent-ink:#FFFFFF; --accent-soft:#DCEDE7;
+  --em:#BF3328; --ur:#B9700C; --ro:#2B62A6; --te:#6A4DB0; --sc:#2D8656;
+  --f-display:"Familjen Grotesk","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1618; --surface:#162125; --sunk:#1C2A2E; --ink:#E3ECEA; --muted:#93A6A4; --line:#2A3B3F;
+  --accent:#5DB9A3; --accent-ink:#0B1A17; --accent-soft:#1D3833;
+  --em:#FF7468; --ur:#F2A640; --ro:#7FAEEB; --te:#AE95F2; --sc:#61CB8E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1618; --surface:#162125; --sunk:#1C2A2E; --ink:#E3ECEA; --muted:#93A6A4; --line:#2A3B3F;
+  --accent:#5DB9A3; --accent-ink:#0B1A17; --accent-soft:#1D3833;
+  --em:#FF7468; --ur:#F2A640; --ro:#7FAEEB; --te:#AE95F2; --sc:#61CB8E; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+.eyebrow{font-size:11.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header */
+header.top{background:var(--surface);border-bottom:1px solid var(--line)}
+header.top .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding-block:16px}
+.brand{display:flex;gap:12px;align-items:center;min-width:0}
+.mark{width:38px;height:38px;border-radius:9px;background:var(--accent);display:grid;place-items:center;flex:none}
+.mark svg{width:22px;height:22px}
+.brand h1{font-size:21px;line-height:1.1}
+.brand p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.mode{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--sunk);white-space:nowrap}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.pill.on .dot{background:var(--sc)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:600;font-size:14px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+a.btn{color:inherit}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.small{padding:5px 10px;font-size:13px}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.55;cursor:default}
+
+.notice{background:var(--accent-soft);font-size:13px}
+.notice .wrap{padding-block:8px}
+
+/* settings drawer */
+#settings{background:var(--surface);border-bottom:1px solid var(--line)}
+#settings .wrap{padding-block:16px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:end}
+#settings p{margin:0;font-size:13px;color:var(--muted);grid-column:1/-1;max-width:75ch}
+
+/* tabs */
+nav.tabs{border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+nav.tabs .wrap{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.tab{border:0;background:none;padding:12px 14px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .count{font-family:var(--f-mono);font-size:12px;background:var(--sunk);border-radius:6px;padding:1px 6px;margin-left:4px}
+
+main{padding-block:24px 56px}
+section.view{display:grid;gap:20px}
+
+/* intake */
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:20px;align-items:start}
+@media (max-width:860px){.cols{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;min-width:0}
+.panel h2{font-size:18px;margin-bottom:4px}
+.panel .sub{color:var(--muted);font-size:13.5px;margin:0 0 16px}
+form{display:grid;gap:14px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+label{display:grid;gap:5px;font-size:13px;font-weight:600}
+label .hint{font-weight:400;color:var(--muted)}
+input[type=text],input[type=number],input[type=password],select,textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:9px 11px;font-size:14.5px;font-weight:400}
+textarea{min-height:92px;resize:vertical}
+fieldset{border:1px solid var(--line);border-radius:8px;padding:10px 12px 12px;margin:0}
+legend{font-size:13px;font-weight:600;padding:0 4px}
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px 14px}
+.checks label{display:flex;gap:8px;align-items:flex-start;font-weight:400;font-size:13.5px}
+.checks input{margin-top:3px;accent-color:var(--em)}
+.flags-other label input{accent-color:var(--accent)}
+.sev{display:flex;align-items:center;gap:12px}
+.sev input{flex:1;accent-color:var(--accent)}
+.sev output{font-family:var(--f-mono);font-weight:500;min-width:3.5ch;text-align:right;font-variant-numeric:tabular-nums}
+.examples{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chipbtn{border:1px dashed var(--line);background:transparent;border-radius:999px;padding:4px 10px;font-size:12.5px;cursor:pointer}
+.chipbtn:hover{border-color:var(--accent);color:var(--accent)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.status{font-size:13px;color:var(--muted)}
+
+/* result */
+.result{border-radius:var(--r);border:1px solid var(--line);background:var(--surface);overflow:hidden;min-width:0}
+.band{padding:18px 20px;border-left:6px solid var(--lv);background:color-mix(in srgb,var(--lv) 11%,var(--surface))}
+.band .eyebrow{color:var(--lv)}
+.band h2{font-size:26px;margin:4px 0 6px}
+.band .wait{font-weight:600}
+.lv-emergency{--lv:var(--em)} .lv-urgent{--lv:var(--ur)} .lv-routine{--lv:var(--ro)} .lv-telehealth{--lv:var(--te)} .lv-selfcare{--lv:var(--sc)}
+.rbody{padding:18px 20px;display:grid;gap:16px}
+.msg{font-size:15.5px;margin:0;max-width:65ch}
+.crisis{border:1px solid var(--em);border-radius:8px;padding:12px 14px;font-size:14px}
+.crisis strong{color:var(--em)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kv div{background:var(--sunk);border-radius:8px;padding:10px 12px}
+.kv dt{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.kv dd{margin:2px 0 0;font-weight:600}
+.reasons{list-style:none;padding:0;margin:0;display:grid;gap:6px}
+.reasons li{display:flex;gap:8px;align-items:baseline;font-size:14px}
+.tag{font-family:var(--f-mono);font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);flex:none}
+.tag.ai{border-color:var(--te);color:var(--te)}
+.tag.guard{border-color:var(--em);color:var(--em)}
+pre.summary{margin:0;font-family:var(--f-mono);font-size:13px;background:var(--sunk);border-radius:8px;padding:12px;white-space:pre-wrap;word-break:break-word}
+.subhead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.subhead h3{font-size:14px}
+
+/* queue */
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media (max-width:700px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--lv);border-radius:var(--r);padding:12px 14px}
+.stat b{display:block;font-family:var(--f-display);font-size:28px;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat span{font-size:13px;color:var(--muted)}
+.qtools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;background:var(--sunk)}
+tr:last-child td{border-bottom:0}
+td.mono{font-family:var(--f-mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+.lvchip{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12.5px;color:var(--lv);background:color-mix(in srgb,var(--lv) 12%,var(--surface));padding:3px 9px;border-radius:999px;white-space:nowrap}
+.lvchip::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--lv)}
+.ex{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:6px}
+.empty{padding:32px;text-align:center;color:var(--muted)}
+.confirm{display:inline-flex;gap:8px;align-items:center;font-size:13px}
+
+/* chat */
+.chat{display:grid;grid-template-rows:auto 1fr auto;height:min(640px,75vh);padding:0;overflow:hidden}
+.chat header{padding:16px 20px;border-bottom:1px solid var(--line)}
+.log{overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px}
+.bubble{max-width:min(78%,560px);padding:10px 13px;border-radius:12px;font-size:14.5px;white-space:pre-wrap}
+.bubble.me{align-self:flex-end;background:var(--accent);color:var(--accent-ink);border-bottom-right-radius:4px}
+.bubble.bot{align-self:flex-start;background:var(--sunk);border-bottom-left-radius:4px}
+.bubble.bot.alert{background:color-mix(in srgb,var(--em) 12%,var(--surface));border:1px solid var(--em)}
+.bubble small{display:block;margin-top:4px;font-size:11px;opacity:.7;font-family:var(--f-mono)}
+.composer{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+.composer input{flex:1;min-width:0}
+.suggest{display:flex;gap:6px;flex-wrap:wrap;padding:0 20px 10px}
+.kb{font-size:14px}
+.kb dl{display:grid;gap:10px;margin:0}
+.kb dt{font-weight:600}
+.kb dd{margin:0;color:var(--muted)}
+
+/* how it works */
+.flow{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;counter-reset:s}
+@media (max-width:900px){.flow{grid-template-columns:minmax(0,1fr)}}
+.flow li{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;counter-increment:s;position:relative}
+.flow li::before{content:counter(s);font-family:var(--f-mono);font-size:12px;color:var(--accent);font-weight:500;display:block;margin-bottom:4px}
+.flow h3{font-size:15px;margin-bottom:4px}
+.flow p{margin:0;font-size:13.5px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.panel ul{margin:0;padding-left:18px;display:grid;gap:6px;font-size:14px}
+code{font-family:var(--f-mono);font-size:.9em;background:var(--sunk);padding:1px 5px;border-radius:4px}
+footer{font-size:12.5px;color:var(--muted);padding-block:0 32px}
+@media (prefers-reduced-motion:no-preference){.result{animation:rise .25s ease-out}@keyframes rise{from{transform:translateY(4px)}to{transform:none}}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-ink)" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+      <div>
+        <h1>ClinicPilot</h1>
+        <p>AI front desk for <b>Harbourview 7-Day Medical</b> · open 7am–10pm, every day</p>
+      </div>
+    </div>
+    <div class="mode">
+      <span class="pill" id="modePill"><span class="dot"></span><span id="modeText">Connecting…</span></span>
+      <button class="btn small" id="toggleSettings" aria-expanded="false" aria-controls="settings">AI status</button>
+    </div>
+  </div>
+</header>
+<div id="settings" hidden>
+  <div class="wrap">
+    <p id="aiState">Checking the server…</p>
+    <p>ClinicPilot always runs its safety rules first. When a Gemini API key is set on the server, the AI layer also writes the patient message and reception summary and can raise urgency, but never lower it below the rules. To turn AI on, put <code>GEMINI_API_KEY=your-key</code> in a <code>.env</code> file next to <code>app.py</code> and restart the server. The key never reaches the browser.</p>
+  </div>
+</div>
+<div class="notice"><div class="wrap">Demo for an AI skills assessment. Harbourview 7-Day Medical is a fictional clinic and every patient shown is an example. This tool routes appointment requests; it does not give medical advice. In an emergency call <b>000</b>.</div></div>
+
+<nav class="tabs" aria-label="Sections"><div class="wrap" role="tablist">
+  <button class="tab" role="tab" aria-selected="true" data-view="intake" id="t-intake">Patient intake</button>
+  <button class="tab" role="tab" aria-selected="false" data-view="queue" id="t-queue">Reception queue <span class="count" id="qCount">0</span></button>
+  <button class="tab" role="tab" aria-selected="false" data-view="assistant" id="t-assistant">Clinic assistant</button>
+  <button class="tab" role="tab" aria-selected="false" data-view="how" id="t-how">How it works</button>
+</div></nav>
+
+<main class="wrap">
+
+<!-- INTAKE -->
+<section class="view" id="v-intake">
+  <div class="cols">
+    <div class="panel">
+      <h2>Appointment request</h2>
+      <p class="sub">What a patient fills in on the clinic website or a waiting-room tablet.</p>
+      <div class="examples" style="margin-bottom:14px"><span class="eyebrow">Try an example</span>
+        <button class="chipbtn" data-ex="chest">Chest tightness</button>
+        <button class="chipbtn" data-ex="ear">Child ear pain + fever</button>
+        <button class="chipbtn" data-ex="script">Repeat script</button>
+        <button class="chipbtn" data-ex="cold">Runny nose</button>
+        <button class="chipbtn" data-ex="anx">Feeling anxious</button>
+      </div>
+      <form id="intakeForm" novalidate>
+        <div class="row">
+          <label>Patient name<input type="text" id="fName" required></label>
+          <label>Age<input type="number" id="fAge" min="0" max="120" required></label>
+        </div>
+        <label>What do you need?
+          <select id="fType">
+            <option value="new">A new health problem</option>
+            <option value="followup">Follow-up on an existing problem</option>
+            <option value="script">Repeat prescription</option>
+            <option value="results">Discuss test results</option>
+            <option value="certificate">Medical certificate</option>
+            <option value="referral">Specialist referral</option>
+            <option value="vaccine">Vaccination</option>
+          </select>
+        </label>
+        <label>Describe your symptoms or request <span class="hint">in your own words</span><textarea id="fSymptoms"></textarea></label>
+        <div class="row">
+          <label>How long has this been going on?
+            <select id="fDuration">
+              <option value="lt24">Less than 24 hours</option>
+              <option value="1to3">1–3 days</option>
+              <option value="4to7">4–7 days</option>
+              <option value="gt7">More than a week</option>
+              <option value="na">Not applicable</option>
+            </select>
+          </label>
+          <label>How bad is it right now? <span class="hint">0 none · 10 worst</span>
+            <span class="sev"><input type="range" id="fSeverity" min="0" max="10" value="3"><output id="sevOut">3/10</output></span>
+          </label>
+        </div>
+        <fieldset>
+          <legend>Do any of these apply right now?</legend>
+          <div class="checks" id="redFlagChecks"></div>
+        </fieldset>
+        <fieldset class="flags-other">
+          <legend>About you</legend>
+          <div class="checks">
+            <label><input type="checkbox" id="fPregnant"> Pregnant</label>
+            <label><input type="checkbox" id="fChronic"> Ongoing condition (e.g. diabetes, heart, lung, kidney)</label>
+          </div>
+        </fieldset>
+        <div class="actions">
+          <button class="btn primary" type="submit" id="runBtn">Check and route request</button>
+          <span class="status" id="runStatus" role="status"></span>
+        </div>
+      </form>
+    </div>
+    <div id="resultHost"></div>
+  </div>
+</section>
+
+<!-- QUEUE -->
+<section class="view" id="v-queue" hidden>
+  <div>
+    <span class="eyebrow">Reception view</span>
+    <h2 style="font-size:24px;margin-top:2px">Today's request queue</h2>
+    <p class="sub" style="color:var(--muted);margin:4px 0 0;max-width:70ch">Requests sorted by urgency, then by how long they have waited.</p>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="qtools">
+    <label style="display:flex;gap:8px;align-items:center;font-weight:400">Show
+      <select id="qFilter" style="width:auto">
+        <option value="all">All levels</option>
+        <option value="emergency">Emergency</option><option value="urgent">Same-day</option>
+        <option value="routine">Routine</option><option value="telehealth">Telehealth</option><option value="selfcare">Self-care</option>
+      </select>
+    </label>
+    <div class="actions">
+      <a class="btn small" href="/api/queue.csv" style="text-decoration:none">Download CSV</a>
+      <button class="btn small" id="resetEx">Reload examples</button>
+      <span id="clearWrap"><button class="btn small ghost" id="clearQ">Clear queue</button></span>
+      <span class="status" id="qStatus" role="status"></span>
+    </div>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Priority</th><th>Received</th><th>Patient</th><th>Booking</th><th>Reception summary</th><th>Source</th><th></th></tr></thead>
+    <tbody id="qBody"></tbody>
+  </table></div>
+</section>
+
+<!-- ASSISTANT -->
+<section class="view" id="v-assistant" hidden>
+  <div class="cols">
+    <div class="panel chat">
+      <header><h2>Ask Harbourview</h2><p class="sub" style="margin:2px 0 0">Answers come only from the clinic's own information. Symptoms are sent to intake, emergencies to 000.</p></header>
+      <div class="log" id="log" aria-live="polite"></div>
+      <div>
+        <div class="suggest" id="suggest"></div>
+        <form class="composer" id="chatForm"><input type="text" id="chatIn" placeholder="Ask about hours, fees, telehealth…" aria-label="Your question"><button class="btn primary" type="submit">Send</button></form>
+      </div>
+    </div>
+    <div class="panel kb">
+      <span class="eyebrow">Knowledge base</span>
+      <h2 style="margin:2px 0 12px">What the assistant knows</h2>
+      <dl id="kbList"></dl>
+    </div>
+  </div>
+</section>
+
+<!-- HOW -->
+<section class="view" id="v-how" hidden>
+  <div>
+    <span class="eyebrow">Design</span>
+    <h2 style="font-size:24px;margin-top:2px">How a request moves through ClinicPilot</h2>
+    <p style="color:var(--muted);max-width:70ch;margin:6px 0 0">Reception at a 7-day clinic fields hundreds of calls and web requests. ClinicPilot sorts them so the sickest patients are seen first, simple admin goes to telehealth, and staff read one consistent summary instead of free text.</p>
+  </div>
+  <ol class="flow">
+    <li><h3>Intake</h3><p>Patient describes the problem in plain words, plus duration, severity and a red-flag checklist.</p></li>
+    <li><h3>Safety screen</h3><p>Deterministic rules scan checkboxes and free text for 9 red-flag patterns and risk factors (age, pregnancy, chronic illness).</p></li>
+    <li><h3>AI reasoning</h3><p>Optional. Gemini reads the form and the rule result, returns strict JSON: urgency, booking type, patient message, staff summary.</p></li>
+    <li><h3>Guardrail merge</h3><p>The more urgent of the two levels wins. AI can escalate, never downgrade. Bad or missing AI output falls back to rules.</p></li>
+    <li><h3>Reception queue</h3><p>Request lands in a queue sorted by urgency and wait time, saved on the server and exportable as CSV.</p></li>
+  </ol>
+  <div class="grid2">
+    <div class="panel"><h2>Safety principles</h2><ul>
+      <li>Never diagnoses or names a condition; it only routes the request.</li>
+      <li>Any red flag shows "Call 000" and blocks booking.</li>
+      <li>Self-harm language shows 000 and Lifeline 13 11 14.</li>
+      <li>When unsure, it picks the more urgent level.</li>
+      <li>Every result lists its reasons and whether they came from a rule or the AI.</li>
+    </ul></div>
+    <div class="panel"><h2>Built with</h2><ul>
+      <li>Python 3 with Flask for the web server and API.</li>
+      <li>Rules engine in Python with regex red-flag detection, so the tool works without AI.</li>
+      <li>Google Gemini API (<code>generateContent</code>, JSON response mode, temperature 0.2), called from the server so the key stays private.</li>
+      <li>Batch script that triages a spreadsheet of requests into a colour-coded Excel report.</li>
+      <li>HTML, CSS and JavaScript for this interface; pytest for automated tests.</li>
+    </ul></div>
+  </div>
+</section>
+</main>
+<footer class="wrap">ClinicPilot · prototype · fictional clinic data · phone numbers use the ACMA fictitious range</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const fmtTime = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  let cfg = null;
+  let queue = [];
+  const history = [];
+
+  async function api(path, options = {}) {
+    const opts = { headers: { "Content-Type": "application/json" }, ...options };
+    if (opts.body && typeof opts.body !== "string") opts.body = JSON.stringify(opts.body);
+    const res = await fetch(path, opts);
+    if (res.status === 204) return null;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Server returned ${res.status}`);
+    return data;
+  }
+
+  async function copyText(text, statusEl, msg) {
+    try {
+      await navigator.clipboard.writeText(text);
+      statusEl.textContent = msg || "Copied";
+    } catch (e) {
+      statusEl.textContent = "Copy blocked. Select the text and copy it manually.";
+    }
+    setTimeout(() => (statusEl.textContent = ""), 3000);
+  }
+
+  const EXAMPLES = {
+    chest: { name: "Example: Graham T.", age: 61, request_type: "new", symptoms: "Tightness across my chest since about an hour ago, a bit sweaty and it goes down my left arm", duration: "lt24", severity: 7 },
+    ear: { name: "Example: Mia R. (child)", age: 4, request_type: "new", symptoms: "Ear pain on the right side and a fever of 38.9 since last night, crying a lot and not eating much", duration: "1to3", severity: 6 },
+    script: { name: "Example: Joan K.", age: 68, request_type: "script", symptoms: "Need my blood pressure tablets renewed, feeling fine", duration: "na", severity: 0, chronic: true },
+    cold: { name: "Example: Sam L.", age: 29, request_type: "new", symptoms: "Runny nose, sneezing and a bit of a sore throat since yesterday", duration: "1to3", severity: 2 },
+    anx: { name: "Example: Priya S.", age: 34, request_type: "new", symptoms: "Feeling anxious most days for the last month, trouble sleeping and stressed at work", duration: "gt7", severity: 5 },
+  };
+
+  const sev = $("#fSeverity");
+  const sevOut = $("#sevOut");
+  sev.addEventListener("input", () => (sevOut.textContent = sev.value + "/10"));
+
+  function readForm() {
+    return {
+      name: $("#fName").value.trim(),
+      age: $("#fAge").value,
+      request_type: $("#fType").value,
+      symptoms: $("#fSymptoms").value,
+      duration: $("#fDuration").value,
+      severity: +sev.value,
+      flags: [...document.querySelectorAll("#redFlagChecks input:checked")].map((i) => i.value),
+      pregnant: $("#fPregnant").checked,
+      chronic: $("#fChronic").checked,
+    };
+  }
+
+  function fill(ex) {
+    $("#fName").value = ex.name;
+    $("#fAge").value = ex.age;
+    $("#fType").value = ex.request_type;
+    $("#fSymptoms").value = ex.symptoms;
+    $("#fDuration").value = ex.duration;
+    sev.value = ex.severity;
+    sevOut.textContent = ex.severity + "/10";
+    document.querySelectorAll("#redFlagChecks input").forEach((i) => (i.checked = false));
+    $("#fPregnant").checked = !!ex.pregnant;
+    $("#fChronic").checked = !!ex.chronic;
+  }
+
+  function renderResult(r, intake) {
+    const tagClass = { ai: "ai", guard: "guard" };
+    const tagText = { ai: "AI", guard: "GUARD", rule: "RULE" };
+    $("#resultHost").innerHTML = `
+    <article class="result lv-${r.level}">
+      <div class="band">
+        <span class="eyebrow">${esc(r.short)} · ${esc(intake.name)}, ${esc(intake.age)}</span>
+        <h2>${esc(r.title)}</h2>
+        <div class="wait">${esc(r.wait)}</div>
+      </div>
+      <div class="rbody">
+        <p class="msg">${esc(r.message)}</p>
+        ${r.crisis ? `<div class="crisis"><strong>Support now:</strong> Emergency <b>000</b> · Lifeline <b>13 11 14</b> (24/7) · 13YARN <b>13 92 76</b> for Aboriginal and Torres Strait Islander people.</div>` : ""}
+        <dl class="kv">
+          <div><dt>Booking</dt><dd>${esc(r.appointment_label)}</dd></div>
+          <div><dt>Request</dt><dd>${esc(cfg.request_types[intake.request_type])}</dd></div>
+          <div><dt>Decided by</dt><dd>${r.source === "ai" ? "Rules + Gemini" : "Rules engine"}${r.escalated ? " (escalated)" : ""}</dd></div>
+        </dl>
+        <div><div class="subhead"><h3>Why this result</h3></div>
+          <ul class="reasons">${r.reasons.map((x) => `<li><span class="tag ${tagClass[x.source] || ""}">${tagText[x.source] || "RULE"}</span><span>${esc(x.text)}</span></li>`).join("")}</ul>
+        </div>
+        <div>
+          <div class="subhead"><h3>Reception summary</h3><span class="status" id="copyStatus" role="status"></span></div>
+          <pre class="summary">${esc(r.summary)}</pre>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="addQ">${r.level === "emergency" ? "Log for follow-up call" : "Add to reception queue"}</button>
+          <button class="btn" id="copySum">Copy summary</button>
+        </div>
+      </div>
+    </article>`;
+
+    $("#copySum").onclick = () => copyText(r.summary, $("#copyStatus"), "Summary copied");
+    $("#addQ").onclick = async () => {
+      const btn = $("#addQ");
+      btn.disabled = true;
+      try {
+        await api("/api/queue", {
+          method: "POST",
+          body: { name: intake.name, age: intake.age, request_type: intake.request_type, severity: intake.severity, level: r.level, appointment: r.appointment, summary: r.summary, source: r.source },
+        });
+        btn.textContent = "Added to queue";
+        loadQueue();
+      } catch (e) {
+        btn.disabled = false;
+        $("#copyStatus").textContent = e.message;
+      }
+    };
+  }
+
+  async function run() {
+    const status = $("#runStatus");
+    status.textContent = cfg.ai_enabled ? "Checking with rules and Gemini…" : "Checking…";
+    $("#runBtn").disabled = true;
+    try {
+      const data = await api("/api/triage", { method: "POST", body: readForm() });
+      renderResult(data.result, data.intake);
+      status.textContent = data.result.notice || (data.result.source === "ai" ? "Checked by rules and Gemini." : "Checked by the rules engine.");
+    } catch (e) {
+      status.textContent = e.message;
+    } finally {
+      $("#runBtn").disabled = false;
+    }
+  }
+
+  $("#intakeForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    run();
+  });
+  document.querySelectorAll("[data-ex]").forEach((b) =>
+    b.addEventListener("click", () => {
+      fill(EXAMPLES[b.dataset.ex]);
+      run();
+    })
+  );
+
+  function renderQueue() {
+    $("#qCount").textContent = queue.length;
+    $("#stats").innerHTML = Object.keys(cfg.levels)
+      .map((k) => `<div class="stat lv-${k}"><b>${queue.filter((q) => q.level === k).length}</b><span>${cfg.levels[k].short}</span></div>`)
+      .join("");
+    const filter = $("#qFilter").value;
+    const rows = queue.filter((q) => filter === "all" || q.level === filter);
+    const now = Date.now() / 1000;
+    $("#qBody").innerHTML = rows.length
+      ? rows.map((q) => `<tr>
+          <td><span class="lvchip lv-${q.level}">${esc(cfg.levels[q.level].short)}</span></td>
+          <td class="mono">${fmtTime(q.received)}<br>${Math.max(0, Math.round((now - q.received) / 60))} min ago</td>
+          <td><b>${esc(q.name)}</b>${q.example ? '<span class="ex">example</span>' : ""}<br><span style="color:var(--muted)">${esc(q.age)}y · ${esc(cfg.request_types[q.request_type] || "")}</span></td>
+          <td>${esc(cfg.appointments[q.appointment])}</td>
+          <td style="max-width:420px">${esc(q.summary)}</td>
+          <td>${q.source === "ai" ? "AI" : "Rules"}</td>
+          <td><button class="btn small ghost" data-done="${esc(q.id)}">Done</button></td></tr>`).join("")
+      : `<tr><td colspan="7" class="empty">No requests${filter !== "all" ? " at this level" : ""}. New requests from the Patient intake tab appear here.</td></tr>`;
+    document.querySelectorAll("[data-done]").forEach((b) => (b.onclick = async () => {
+      await api(`/api/queue/${b.dataset.done}`, { method: "DELETE" });
+      loadQueue();
+    }));
+  }
+
+  async function loadQueue() {
+    queue = await api("/api/queue");
+    renderQueue();
+  }
+
+  function flash(msg) {
+    $("#qStatus").textContent = msg;
+    setTimeout(() => ($("#qStatus").textContent = ""), 2500);
+  }
+
+  $("#qFilter").addEventListener("change", renderQueue);
+  $("#resetEx").onclick = async () => {
+    queue = await api("/api/queue/examples", { method: "POST" });
+    renderQueue();
+    flash("Examples reloaded");
+  };
+
+  function bindClear() {
+    $("#clearQ").onclick = () => {
+      $("#clearWrap").innerHTML = `<span class="confirm">Remove all ${queue.length}? <button class="btn small primary" id="yesClear">Clear</button><button class="btn small" id="noClear">Keep</button></span>`;
+      $("#yesClear").onclick = async () => {
+        await api("/api/queue", { method: "DELETE" });
+        await loadQueue();
+        resetClear();
+      };
+      $("#noClear").onclick = resetClear;
+    };
+  }
+  function resetClear() {
+    $("#clearWrap").innerHTML = `<button class="btn small ghost" id="clearQ">Clear queue</button>`;
+    bindClear();
+  }
+  bindClear();
+
+  function bubble(text, who, meta, alert) {
+    const d = document.createElement("div");
+    d.className = "bubble " + who + (alert ? " alert" : "");
+    d.textContent = text;
+    if (meta) {
+      const s = document.createElement("small");
+      s.textContent = meta;
+      d.appendChild(s);
+    }
+    $("#log").appendChild(d);
+    $("#log").scrollTop = $("#log").scrollHeight;
+  }
+
+  async function ask(question) {
+    bubble(question, "me");
+    try {
+      const data = await api("/api/chat", { method: "POST", body: { message: question, history } });
+      history.push({ role: "user", text: question }, { role: "bot", text: data.answer });
+      if (data.notice) bubble(data.notice, "bot", "System");
+      bubble(data.answer, "bot", data.source, data.alert);
+    } catch (e) {
+      bubble(e.message, "bot", "System");
+    }
+  }
+
+  $("#chatForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const q = $("#chatIn").value.trim();
+    if (!q) return;
+    $("#chatIn").value = "";
+    ask(q);
+  });
+
+  const VIEWS = ["intake", "queue", "assistant", "how"];
+  function show(view) {
+    if (!VIEWS.includes(view)) view = "intake";
+    VIEWS.forEach((x) => {
+      $("#v-" + x).hidden = x !== view;
+      $("#t-" + x).setAttribute("aria-selected", x === view ? "true" : "false");
+    });
+  }
+  document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => show(t.dataset.view)));
+
+  $("#toggleSettings").onclick = () => {
+    const s = $("#settings");
+    s.hidden = !s.hidden;
+    $("#toggleSettings").setAttribute("aria-expanded", String(!s.hidden));
+  };
+
+  function showOffline() {
+    $("#resultHost").innerHTML = `<div class="panel"><h2>Server not running</h2>
+      <p class="sub" style="margin-top:8px">ClinicPilot needs its Python server. In the project folder run:</p>
+      <pre class="summary">pip install -r requirements.txt\npython app.py</pre>
+      <p class="sub" style="margin-top:12px">Then open <b>http://127.0.0.1:5000</b> in your browser.</p></div>`;
+    $("#runStatus").textContent = "Start the server first.";
+  }
+
+  async function boot() {
+    try {
+      cfg = await api("/api/config");
+    } catch (e) {
+      showOffline();
+      return;
+    }
+
+    $("#modePill").classList.toggle("on", cfg.ai_enabled);
+    $("#modeText").textContent = cfg.ai_enabled ? `Rules + Gemini (${cfg.model})` : "Rules engine";
+    $("#aiState").textContent = cfg.ai_enabled
+      ? `AI is on. The server is using ${cfg.model} with the key from your .env file.`
+      : "AI is off. The app is using the safety rules only.";
+
+    $("#redFlagChecks").innerHTML = cfg.red_flags.map((r) => `<label><input type="checkbox" value="${r.id}" id="rf-${r.id}"> ${esc(r.label)}</label>`).join("");
+    $("#kbList").innerHTML = cfg.clinic.knowledge_base.map((k) => `<div><dt>${esc(k.title)}</dt><dd>${esc(k.answer)}</dd></div>`).join("")
+      + `<div><dt>Phone</dt><dd>${esc(cfg.clinic.phone)}</dd></div>`;
+
+    ["Are you open on Sunday?", "Do you bulk bill kids?", "Can I get a repeat script by video?", "Where do I park?"].forEach((s) => {
+      const b = document.createElement("button");
+      b.className = "chipbtn";
+      b.type = "button";
+      b.textContent = s;
+      b.onclick = () => ask(s);
+      $("#suggest").appendChild(b);
+    });
+    bubble("Hi, I'm the Harbourview assistant. Ask me about hours, fees, bookings or telehealth.", "bot", "Clinic FAQ");
+
+    const hash = (location.hash || "").replace("#", "");
+    show(VIEWS.includes(hash) ? hash : "intake");
+    loadQueue();
+    fill(EXAMPLES.ear);
+    run();
+  }
+
+  boot();
+})();
+</script>
+
+</body>
+</html>
